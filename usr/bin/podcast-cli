@@ -1,3 +1,163 @@
-#!/bin/sh
+#!/bin/bash
 
-echo "Ciao!"
+function _print_usage {
+    # Display usage
+    echo
+    echo "Usage: $0 [options]"
+    echo
+    echo "Options:"
+    echo "> Podcast:"
+    echo "  --new-podcast"
+    echo "  --edit-podcast"
+    echo "  --delete-podcast"
+    echo "  --id, --identifier"
+    echo "  --title"
+    echo "  --author"
+    echo "  --author-email"
+    echo "  --explicit"
+    echo "  --website"
+    echo "  --picture"
+    echo "  --category"
+
+    echo "  -h|--help                           Print usage."
+    echo "  --download                          Print usage."
+    echo "  --list-available-qualities          Print usage."
+    echo "  --path-download                     Input the path where to download."
+    echo
+}
+
+function _list_available_qualities {
+	url_parameter=${1}
+
+    streamlink "${url_parameter}"
+}
+
+function _download {
+	url_parameter=${1}
+	quality_parameter=${2}
+	filename_output_parameter=${3}
+	path_download_parameter=${4}
+	http_no_ssl_verify_parameter=${5}
+
+	mkdir -p "${path_download_parameter}"
+	cd "${path_download_parameter}"
+
+	if [ "${http_no_ssl_verify_parameter}" != "true" ];
+	then
+		streamlink "${url_parameter}" "${quality_parameter}" -o "${filename_output_parameter}"
+	else
+        streamlink --http-no-ssl-verify "${url_parameter}" "${quality_parameter}" -o "${filename_output_parameter}"
+	fi
+}
+
+#USER="pi"
+#PROJECT_NAME="streamlink"
+#PATH_PROJECT="/home/${USER}/projects/${PROJECT_NAME}"
+FILENAME_LIST="list.txt"
+#PATH_LIST="${PATH_PROJECT}/bin"
+PATH_DOWNLOAD_DEFAULT="../output"
+
+# Execute getopt on the arguments passed to this program, identified by the special character $@
+PARSED_OPTIONS=$(getopt -n "$0" -o h --long "help,download,list-available-qualities,path-download:" -- "$@")
+
+#Bad arguments, something has gone wrong with the getopt command.
+if [ $? -ne 0 ];
+then
+    #_print_error "Bad arguments."
+    echo "[error] Something has gone wrong with the getopt command."
+    exit 1
+fi
+
+# A little magic, necessary when using getopt.
+eval set -- "${PARSED_OPTIONS}"
+
+is_download="false"
+is_list_available_qualities="false"
+path_download_input="NULL"
+
+# Now goes through all the options with a case and using shift to analyse 1 argument at a time.
+#$1 identifies the first argument, and when we use shift we discard the first argument, so $2 becomes $1 and goes again through the case.
+while true;
+do
+    case "${1}" in
+        -h|--help)
+            _print_usage
+            exit 0
+            shift;;
+        --download)
+            is_download="true"
+            shift;;
+        --list-available-qualities)
+            is_list_available_qualities="true"
+            shift;;
+        --path-download)
+            if [ -n "${2}" ];
+            then
+                path_download_input="${2}"
+            fi
+            shift 2;;
+        --)
+            shift
+            break;;
+    esac
+done
+
+# Print usage in case parameters are empty
+if [ "${is_download}" == "false" ] && [ "${is_list_available_qualities}" == "false" ];
+then
+    echo "[error] The mandatory parameters are empty."
+    _print_usage
+    exit 1
+fi
+
+#cd "${PATH_LIST}"
+
+if [ ! -f "${FILENAME_LIST}" ]; then
+    # echo "$FILE does not exist."
+    echo "[error] '${FILENAME_LIST}' doesn't exist."
+    exit 1
+fi
+
+# index arrays
+INDEX_URL=0
+INDEX_QUALITY=1
+INDEX_FILENAME_OUTPUT=2
+
+# save lines in array
+i=0
+while IFS= read -r line || [ -n "${line}" ]; 
+do
+    line_parsed=$(printf '%s\n' "$line" | tr -d '\r')
+
+    IFS='|' read -ra splitted_line_array <<< "$line_parsed"
+
+    if [ "${is_download}" == "true" ] && [ "${is_list_available_qualities}" == "true" ];
+    then
+        echo "[error] Choose one thing to do."
+        _print_usage
+        exit 1
+    else
+        echo "---------------------------------------------------------------"
+        echo "[debug] url: ${splitted_line_array[INDEX_URL]}"
+        echo "[debug] quality: ${splitted_line_array[INDEX_QUALITY]}"
+        echo "[debug] filename_output: ${splitted_line_array[INDEX_FILENAME_OUTPUT]}"
+        
+        if [ "${is_download}" == "true" ];
+        then
+            echo "[debug] action to perform: download"
+            if [ "${path_download_input}" != "NULL" ] && [ "${path_download_input}" != "" ];
+            then
+                _download "${splitted_line_array[INDEX_URL]}" "${splitted_line_array[INDEX_QUALITY]}" "${splitted_line_array[INDEX_FILENAME_OUTPUT]}" "${path_download_input}"
+            else
+                _download "${splitted_line_array[INDEX_URL]}" "${splitted_line_array[INDEX_QUALITY]}" "${splitted_line_array[INDEX_FILENAME_OUTPUT]}" "${PATH_DOWNLOAD_DEFAULT}"
+            fi
+        else
+            echo "[debug] action to perform: list available qualities"
+
+            _list_available_qualities "${splitted_line_array[INDEX_URL]}"
+        fi
+        echo "---------------------------------------------------------------"
+    fi
+done <${FILENAME_LIST}
+
+echo "[info] Execution completed."
