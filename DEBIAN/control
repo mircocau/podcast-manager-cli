@@ -1,6 +1,6 @@
 Package: podcast-cli
 Version: 1.0
-Depends: sqlite3
+Depends: sqlite3, echo
 Architecture: all
 Maintainer: Mirco Cau <podcast-cli@mircocau.com>
 Description: Podcast manager
