@@ -495,9 +495,6 @@ case "${command}" in
     "backup.new")
         is_show="true"
         ;;
-    "backup.edit")
-        is_show="true"
-        ;;
     "backup.delete")
         is_show="true"
         ;;
