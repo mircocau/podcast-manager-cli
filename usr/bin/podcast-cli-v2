@@ -110,9 +110,9 @@ function _is_id_valid {
     id="${1}"
 
     #regex='^[[:lower:]_][[:lower:][:digit:]_-]{2,}$'
-    regex='^[a-zA-Z0-9_.-]+'
+    regex='^[a-zA-Z0-9_.-]+$'
 
-    if [[ "${id}" =~ "${regex}" ]]
+    if [[ ${id} =~ ${regex} ]]
     then 
         echo "true"
     else
@@ -125,7 +125,7 @@ function _is_url_valid {
 
     regex='^(https?|ftp|file)://[-A-Za-z0-9\+&@#/%?=~_|!:,.;]*[-A-Za-z0-9\+&@#/%=~_|]\.[-A-Za-z0-9\+&@#/%?=~_|!:,.;]*[-A-Za-z0-9\+&@#/%=~_|]$'
 
-    if [[ "${url}" =~ "${regex}" ]]
+    if [[ ${url} =~ ${regex} ]]
     then 
         echo "true"
     else
@@ -138,7 +138,7 @@ function _is_email_address_valid {
 
     regex='^(([A-Za-z0-9]+((\.|\-|\_|\+)?[A-Za-z0-9]?)*[A-Za-z0-9]+)|[A-Za-z0-9]+)@(([A-Za-z0-9]+)+((\.|\-|\_)?([A-Za-z0-9]+)+)*)+\.([A-Za-z]{2,})+$'
 
-    if [[ "${email_address}" =~ "${regex}" ]]
+    if [[ ${email_address} =~ ${regex} ]]
     then 
         echo "true"
     else
@@ -402,7 +402,7 @@ case "${command}" in
                 if [ -z "${OPTIONS_ARRAY[${index}]}" ] || [ "${OPTIONS_ARRAY[${index}]}" == "" ]
                 then
                     echo "${index} is empty"
-                    is_error="true"
+                    #is_error="true"
                 fi
             done
         fi
@@ -410,9 +410,10 @@ case "${command}" in
         # Validate 'id'
         if [ "${is_error}" == "false" ]
         then
-            if [ $(is_id_valid ${OPTIONS_ARRAY[id]}) == "false" ]
+            echo "$(_is_id_valid "${OPTIONS_ARRAY[id]}")"
+            if [ "$(_is_id_valid "${OPTIONS_ARRAY[id]}")" == "false" ]
             then
-                echo "[ERROR] ID is invalid. Accepted ID contains A-Z, a-z, 0-9, -,_ or . "
+                echo "[ERROR] ID is invalid. Accepted ID contains A-Z, a-z, 0-9, -,_ or . (no whitespaces)."
                 is_error="true"
             else
                 if [ $(sqlite3 "${PATH_LOCAL_STORAGE}/databases/system/shows.db" "SELECT EXISTS(SELECT 1 FROM shows WHERE local_id='${OPTIONS_ARRAY[id]}' LIMIT 1)") ]
