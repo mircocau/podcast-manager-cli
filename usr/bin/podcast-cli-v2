@@ -402,7 +402,7 @@ case "${command}" in
                 if [ -z "${OPTIONS_ARRAY[${index}]}" ] || [ "${OPTIONS_ARRAY[${index}]}" == "" ]
                 then
                     echo "${index} is empty"
-                    #is_error="true"
+                    is_error="true"
                 fi
             done
         fi
@@ -410,7 +410,6 @@ case "${command}" in
         # Validate 'id'
         if [ "${is_error}" == "false" ]
         then
-            echo "$(_is_id_valid "${OPTIONS_ARRAY[id]}")"
             if [ "$(_is_id_valid "${OPTIONS_ARRAY[id]}")" == "false" ]
             then
                 echo "[ERROR] ID is invalid. Accepted ID contains A-Z, a-z, 0-9, -,_ or . (no whitespaces)."
