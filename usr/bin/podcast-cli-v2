@@ -106,12 +106,26 @@ function _print_usage {
     echo "          $0 --feed --show-id '[your-show-id]' --format 'Atom' --output '/your/path/to/file.xml'"
 }
 
+function _is_id_valid {
+    id="${1}"
+
+    #regex='^[[:lower:]_][[:lower:][:digit:]_-]{2,}$'
+    regex='^[a-zA-Z0-9_.-]+'
+
+    if [[ "${id}" =~ "${regex}" ]]
+    then 
+        echo "true"
+    else
+        echo "false"
+    fi
+}
+
 function _is_url_valid {
-    url=${1}
+    url="${1}"
 
     regex='^(https?|ftp|file)://[-A-Za-z0-9\+&@#/%?=~_|!:,.;]*[-A-Za-z0-9\+&@#/%=~_|]\.[-A-Za-z0-9\+&@#/%?=~_|!:,.;]*[-A-Za-z0-9\+&@#/%=~_|]$'
 
-    if [[ ${url} =~ ${regex} ]]
+    if [[ "${url}" =~ "${regex}" ]]
     then 
         echo "true"
     else
@@ -120,11 +134,11 @@ function _is_url_valid {
 }
 
 function _is_email_address_valid {
-    email_address=${1}
+    email_address="${1}"
 
     regex='^(([A-Za-z0-9]+((\.|\-|\_|\+)?[A-Za-z0-9]?)*[A-Za-z0-9]+)|[A-Za-z0-9]+)@(([A-Za-z0-9]+)+((\.|\-|\_)?([A-Za-z0-9]+)+)*)+\.([A-Za-z]{2,})+$'
 
-    if [[ ${email_address} =~ ${regex} ]]
+    if [[ "${email_address}" =~ "${regex}" ]]
     then 
         echo "true"
     else
@@ -361,7 +375,7 @@ if [ "${OPTIONS_ARRAY[delete]}" == "true" ]; then command+=".delete"; fi
 if [ "${OPTIONS_ARRAY[list]}" == "true" ]; then command+=".list"; fi
 if [ "${OPTIONS_ARRAY[restore]}" == "true" ]; then command+=".restore"; fi
 
-echo "command: ${command}"
+# echo "command: ${command}"
 
 case "${command}" in
     "help")
@@ -391,6 +405,22 @@ case "${command}" in
                     is_error="true"
                 fi
             done
+        fi
+
+        # Validate 'id'
+        if [ "${is_error}" == "false" ]
+        then
+            if [ $(is_id_valid ${OPTIONS_ARRAY[id]}) == "false" ]
+            then
+                echo "[ERROR] ID is invalid. Accepted ID contains A-Z, a-z, 0-9, -,_ or . "
+                is_error="true"
+            else
+                if [ $(sqlite3 "${PATH_LOCAL_STORAGE}/databases/system/shows.db" "SELECT EXISTS(SELECT 1 FROM shows WHERE local_id='${OPTIONS_ARRAY[id]}' LIMIT 1)") ]
+                then
+                    echo "[ERROR] A show with this ID already exist. Choose a different ID."
+                    is_error="true"
+                fi
+            fi
         fi
 
         if [ "${is_error}" == "false" ]
@@ -433,156 +463,46 @@ case "${command}" in
             fi
         fi
 
+        if [ "${is_error}" == "false" ]
+        then
+            if [ ! $(sqlite3 "${PATH_LOCAL_STORAGE}/databases/system/categories.db" "SELECT EXISTS(SELECT 1 FROM categories WHERE id='${OPTIONS_ARRAY[category]}' LIMIT 1)") ]
+            then
+                is_error="true"
+            fi
+        fi
+
+        if [ "${is_error}" == "false" ]
+        then
+            if [ ! $(sqlite3 "${PATH_LOCAL_STORAGE}/databases/system/languages.db" "SELECT EXISTS(SELECT 1 FROM languages WHERE id='${OPTIONS_ARRAY[language]}' LIMIT 1)") ]
+            then
+                is_error="true"
+            fi
+        fi
+
         if [ "${is_error}" == "true" ]
         then
-            echo "[ERROR] Found empty or invalid options."
+            echo "[ERROR] Empty or invalid options."
             exit 1;
         fi
+
+        # SHOW_NEW_INDEX_ARRAY=( "id" "title" "owner" "author" "url" "picture" "category" "summary" "language" "explicit")
         # columns=""
         # values=""
-
-        # declare -a SHOW_NEW_INDEX_ARRAY
-        # SHOW_NEW_INDEX_ARRAY=( "id" "title" "owner" "author" "explicit" "url" "picture" "category" "summary" "language")
-
-        # Required parameters
-        # if [ -z "${id}" ] || [ "${id}" == "NULL" ]
-        # then
-        #     echo "[ERROR] Required option 'id' is missing or empty."
-        #     _print_usage
-        #     exit 1
-        # else
-        #     columns+="id"
-        #     values+="'${id}'"
-        # fi
-
-        # if [ -z "${url}" ] || [ "${url}" == "NULL" ]
-        # then
-        #     echo "[ERROR] Required parameters are missing or empty."
-        #     _print_usage
-        #     exit 1
-        # else
-        #     if [ "$(is_url_valid "${url}")" == "false" ]
+        # i=0
+        # for index in "${SHOW_NEW_INDEX_ARRAY[@]}"
+        # do
+        #     if [ ${i} -eq 0 ]
         #     then
-        #         echo "[ERROR] Url is invalid."
-        #         _print_usage
-        #         exit 1
+        #         columns="${index}"
+        #         values="'${OPTIONS_ARRAY[${index}]}'"
         #     else
-        #         columns+=",url"
-        #         values+=",'${url}'"
+        #         columns+=",${index}"
+        #         values+=",'${OPTIONS_ARRAY[${index}]}'"
         #     fi
-        # fi
+        #     i=((i+1))
+        # done
 
-        # if [ -z "${title}" ] || [ "${title}" == "NULL" ]
-        # then
-        #     echo "[ERROR] Required parameters are missing or empty."
-        #     _print_usage
-        #     exit 1
-        # else
-        #     columns+=",title"
-        #     values+=",'${title}'"
-        # fi
-
-        # if [ -z "${image}" ] || [ "${image}" == "NULL" ]
-        # then
-        #     echo "[ERROR] Required parameters are missing or empty."
-        #     _print_usage
-        #     exit 1
-        # else
-        #     if [ "$(is_url_valid "${url}")" == "false" ]
-        #     then
-        #         echo "[ERROR] 'image' url is invalid."
-        #         _print_usage
-        #         exit 1
-        #     else
-        #         columns+=",image"
-        #         values+=",'${image}'"
-        #     fi
-        # fi
-
-        # if [ -z "${description}" ] || [ "${description}" == "NULL" ]
-        # then
-        #     echo "[ERROR] Required parameters are missing or empty."
-        #     _print_usage
-        #     exit 1
-        # else
-        #     columns+=",description"
-        #     values+=",'${description}'"
-        # fi
-
-        # if [ -z "${author}" ] || [ "${author}" == "NULL" ]
-        # then
-        #     echo "[ERROR] Required parameters are missing or empty."
-        #     _print_usage
-        #     exit 1
-        # else
-        #     columns+=",author"
-        #     values+=",'${author}'"
-        # fi
-
-        # if [ -z "${owner}" ] || [ "${owner}" == "NULL" ]
-        # then
-        #     echo "[ERROR] Required parameters are missing or empty."
-        #     _print_usage
-        #     exit 1
-        # else
-        #     columns+=",owner"
-        #     values+=",'${owner}'"
-        # fi
-
-        # # Optional parameters
-        # # category
-        # if [ -z "${category}" ] || [ "${category}" == "NULL" ]
-        # then
-        #     echo "[ERROR] Required option 'category' is missing or empty."
-        #     _print_usage
-        #     exit 1
-        # else
-        #     columns+=",category"
-        #     values+=",'${category}'"
-        # fi
-
-        # # explicit
-        # if [ -z "${explicit}" ] || [ "${explicit}" == "NULL" ]
-        # then
-        #     explicit="false"
-        #     columns+=",explicit"
-        #     values+=",'${explicit}'"
-        # else
-        #     if [ "${explicit}" == "true" ] || [ "${explicit}" == "false" ] 
-        #     then
-        #         columns+=",explicit"
-        #         values+=",'${explicit}'"
-        #     else
-        #         echo "[ERROR] Unknown value for explicit option."
-        #         _print_usage
-        #         exit 1
-        #     fi
-        # fi
-
-        # # language
-        # if [ -z "${language}" ] || [ "${language}" == "NULL" ]
-        # then
-        #     echo "[ERROR] Required parameters are missing or empty."
-        #     _print_usage
-        #     exit 1
-        # else
-        #     language_code=$(_get_language_code "${language}")
-        #     if [ -z "${language_code}" ] || [ "${language_code}" == "NULL" ]
-        #     then
-        #         echo "[ERROR] Language not found."
-        #         _print_usage
-        #         exit 1
-        #     else
-        #         columns+=",language"
-        #         values+=",'${language_code}'"
-        #     fi
-        # fi
-
-        
-        
-        # #./databases/active
-        # cd "./active"
-        # _database_insert "shows.db" "show" "id,title,owner,author," "'${id}','${title}','${owner}','${author}'"
+        # _database_insert "${PATH_LOCAL_STORAGE}/databases/shows/shows.db" "show" "id,title,owner,author," "'${id}','${title}','${owner}','${author}'"
 
         # if [ $? -ne 0 ]
         # then
