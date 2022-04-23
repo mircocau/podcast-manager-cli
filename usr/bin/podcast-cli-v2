@@ -6,8 +6,14 @@ function _print_usage {
     echo "Usage: $0 [options]"
     echo
     echo "Options:"
-    echo "  -h | --help                         Print usage."
     echo "  -q | --quiet                        Nothing will be print to screen, except errors."
+    echo ""
+    echo ""
+    echo "Help options:"
+    echo "  -h | --help                         Print usage."
+    echo "    --categories                      Print all show categories."
+    echo "    --languages                       Print all show languages."
+    echo ""
     echo ""
     echo "Show level options:"
     echo "  --show"
@@ -21,10 +27,10 @@ function _print_usage {
     echo "    --author                            Text name(s) of the author(s) of this podcast.This need not be the same as the owner value."
     echo "    --explicit                          Indicates whether the podcast is explicit language or adult content. You can also tag individual episodes with this property for finer-grained control. Values set for this tag at the episode level override any value set at the show level."
     echo "    --url                               Fully-qualified URL of the homepage of your podcast"
-    echo "    --picture                           An picture to associate with your podcast/show."
-    echo "    --category                          Use them as shown below, not translated to any other language: Arts, Business, Comedy, Education, Games &amp; Hobbies, Government &amp; Organizations, Health, Kids &amp; Family, Music, News &amp; Politics, Religion &amp; Spirituality, Science &amp; Medicine, Society &amp; Culture, Sports &amp; Recreation, TV &amp; Film, Technology."
+    echo "    --picture                           Picture's URL to associate with your podcast/show."
+    echo "    --category                          Code of the show category. For a list of all the available categories execute '$0 --help --categories'."
     echo "    --summary                           A plaintext description of the podcast/show."
-    echo "    --language                          The two-letter language code of the podcast as defined by ISO 639-1."
+    echo "    --language                          Code of the main language of the show. For a list of all the available languages execute '$0 --help --languages'."
     echo "    --show-id"
     echo "  How to:"
     echo "      Create a new show:"
@@ -113,10 +119,23 @@ function _is_url_valid {
     fi
 }
 
+function _is_email_address_valid {
+    email_address=${1}
+
+    regex='^(([A-Za-z0-9]+((\.|\-|\_|\+)?[A-Za-z0-9]?)*[A-Za-z0-9]+)|[A-Za-z0-9]+)@(([A-Za-z0-9]+)+((\.|\-|\_)?([A-Za-z0-9]+)+)*)+\.([A-Za-z]{2,})+$'
+
+    if [[ ${email_address} =~ ${regex} ]]
+    then 
+        echo "true"
+    else
+        echo "false"
+    fi
+}
+
 PATH_LOCAL_STORAGE="/etc/podcast-cli"
 
 # Execute getopt on the arguments passed to this program, identified by the special character $@
-PARSED_OPTIONS=$(getopt -n "$0" -o h,q --long "help,quiet,show,episode,new,edit,delete,list,backup,restore,feed,id:,show-id:,title:,owner:,author:,explicit:,url:,image:,category:,description:,language:,publication-datetime:" -- "$@")
+PARSED_OPTIONS=$(getopt -n "$0" -o h,q --long "help,quiet,languages,categories,show,episode,new,edit,delete,list,backup,restore,feed,id:,show-id:,title:,owner:,author:,explicit:,url:,image:,category:,description:,language:,publication-datetime:" -- "$@")
 
 #Bad arguments, something has gone wrong with the getopt command.
 if [ $? -ne 0 ];
@@ -132,6 +151,9 @@ eval set -- "${PARSED_OPTIONS}"
 # Initialize array
 declare -A OPTIONS_ARRAY
 OPTIONS_ARRAY[quiet]='false'
+OPTIONS_ARRAY[help]='false'
+OPTIONS_ARRAY[categories]='false'
+OPTIONS_ARRAY[languages]='false'
 
 OPTIONS_ARRAY[show]='false'
 OPTIONS_ARRAY[episode]='false'
@@ -171,12 +193,17 @@ OPTIONS_ARRAY[output]=''
 while true;
 do
     case "${1}" in
-        -h|--help)
-            _print_usage
-            exit 0
-            shift;;
         -q|--quiet)
             OPTIONS_ARRAY[quiet]='true'
+            shift;;
+        -h|--help)
+            OPTIONS_ARRAY[help]='true'
+            shift;;
+        --categories)
+            OPTIONS_ARRAY[categories]='true'
+            shift;;
+        --languages)
+            OPTIONS_ARRAY[languages]='true'
             shift;;
         --show)
             OPTIONS_ARRAY[show]='true'
@@ -321,6 +348,9 @@ done
 
 # Create 'command'
 command=""
+if [ "${OPTIONS_ARRAY[help]}" == "true" ]; then command+="help"; fi
+if [ "${OPTIONS_ARRAY[categories]}" == "true" ]; then command+=".categories"; fi
+if [ "${OPTIONS_ARRAY[languages]}" == "true" ]; then command+=".languages"; fi
 if [ "${OPTIONS_ARRAY[show]}" == "true" ]; then command+="show"; fi
 if [ "${OPTIONS_ARRAY[episode]}" == "true" ]; then command+="episode"; fi
 if [ "${OPTIONS_ARRAY[backup]}" == "true" ]; then command+="backup"; fi
@@ -334,6 +364,20 @@ if [ "${OPTIONS_ARRAY[restore]}" == "true" ]; then command+=".restore"; fi
 echo "command: ${command}"
 
 case "${command}" in
+    "help")
+        _print_usage
+        exit 0;
+    ;;
+    "help.categories")
+        echo "List of show categories"
+        sqlite3 "${PATH_LOCAL_STORAGE}/databases/system/categories.db" -cmd ".mode column" -cmd ".headers on" -cmd ".width 4 40" "SELECT id AS code, name AS category FROM categories"
+        exit 0;
+    ;;
+    "help.languages")
+        echo "List of show languages"
+        sqlite3 "${PATH_LOCAL_STORAGE}/databases/system/languages.db" -cmd ".mode column" -cmd ".headers on" -cmd ".width 4 40" "SELECT id AS code, name_english AS language FROM languages"
+        exit 0;
+    ;;
     "show.new")
         is_error="false"
         if [ "${is_error}" == "false" ]
@@ -360,6 +404,15 @@ case "${command}" in
                     is_error="true"
                 fi
             done
+        fi
+
+        if [ "${is_error}" == "false" ]
+        then
+            if [ "$(_is_email_address_valid "${OPTIONS_ARRAY[owner]}")" == "false" ]
+            then
+                echo "Owner email address is NOT valid"
+                is_error="true"
+            fi
         fi
 
         if [ "${is_error}" == "false" ]
