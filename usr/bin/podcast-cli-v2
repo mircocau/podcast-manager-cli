@@ -100,9 +100,20 @@ function _print_usage {
     echo "          $0 --feed --show-id '[your-show-id]' --format 'Atom' --output '/your/path/to/file.xml'"
 }
 
-PATH_LOCAL_STORAGE="/etc/podcast-cli"
+function _is_url_valid {
+    url=${1}
 
-declare -a SHOW_NEW_INDEX_ARRAY=( "id" "title" "owner" "author" "explicit" "url" "picture" "category" "summary" "language")
+    regex='^(https?|ftp|file)://[-A-Za-z0-9\+&@#/%?=~_|!:,.;]*[-A-Za-z0-9\+&@#/%=~_|]\.[-A-Za-z0-9\+&@#/%?=~_|!:,.;]*[-A-Za-z0-9\+&@#/%=~_|]$'
+
+    if [[ ${url} =~ ${regex} ]]
+    then 
+        echo "true"
+    else
+        echo "false"
+    fi
+}
+
+PATH_LOCAL_STORAGE="/etc/podcast-cli"
 
 # Execute getopt on the arguments passed to this program, identified by the special character $@
 PARSED_OPTIONS=$(getopt -n "$0" -o h,q --long "help,quiet,show,episode,new,edit,delete,list,backup,restore,feed,id:,show-id:,title:,owner:,author:,explicit:,url:,image:,category:,description:,language:,publication-datetime:" -- "$@")
@@ -324,13 +335,56 @@ echo "command: ${command}"
 
 case "${command}" in
     "show.new")
-        for index in "${SHOW_NEW_INDEX_ARRAY[@]}"
-        do
-            if [ -z "${OPTIONS_ARRAY[${index}]}" ] || [ "${OPTIONS_ARRAY[${index}]}" == "" ]
+        is_error="false"
+        if [ "${is_error}" == "false" ]
+        then
+            declare -a MANDATORY_SHOW_NEW_INDEX_ARRAY=( "id" "title" "owner" "author" "url" "picture" "category" "summary" "language")
+            for index in "${MANDATORY_SHOW_NEW_INDEX_ARRAY[@]}"
+            do
+                if [ -z "${OPTIONS_ARRAY[${index}]}" ] || [ "${OPTIONS_ARRAY[${index}]}" == "" ]
+                then
+                    echo "${index} is empty"
+                    is_error="true"
+                fi
+            done
+        fi
+
+        if [ "${is_error}" == "false" ]
+        then
+            declare -a URL_SHOW_NEW_INDEX_ARRAY=( "url" "picture" )
+            for index in "${URL_SHOW_NEW_INDEX_ARRAY[@]}"
+            do
+                if [ "$(_is_url_valid "${OPTIONS_ARRAY[${index}]}")" == "false" ]
+                then
+                    echo "${index} is not valid"
+                    is_error="true"
+                fi
+            done
+        fi
+
+        if [ "${is_error}" == "false" ]
+        then
+            if [ -z "${OPTIONS_ARRAY[explicit]}" ] || [ "${OPTIONS_ARRAY[explicit]}" == "" ] || [ "${OPTIONS_ARRAY[explicit]}" == "true" ]
             then
-                echo "${index} is empty"
+                echo "is explicit"
+                OPTIONS_ARRAY[explicit]="true"
+            else
+                if [ "${OPTIONS_ARRAY[explicit]}" == "false" ]
+                then
+                    echo "is NOT explicit"
+                    OPTIONS_ARRAY[explicit]="false"
+                else
+                    echo "Explicit value is NOT valid."
+                    is_error="true"
+                fi
             fi
-        done
+        fi
+
+        if [ "${is_error}" == "true" ]
+        then
+            echo "[ERROR] Found empty or invalid options."
+            exit 1;
+        fi
         # columns=""
         # values=""
 
