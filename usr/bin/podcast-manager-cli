@@ -195,8 +195,27 @@ function _get_language_code {
     echo "${to_return}"
 }
 
-PATH_LOCAL_STORAGE="/etc/podcast-cli"
+PATH_SYSTEM_STORAGE="/usr/share/podcast-manager-cli"
+PATH_LOCAL_STORAGE="${HOME}/.podcast-manager-cli"
 #PATH_LOCAL_STORAGE="/home/mircocau/git-repos/podcast-cli/etc/podcast-cli"
+
+if [ ! -f "${PATH_LOCAL_STORAGE}/databases/system/shows.db" ]
+then
+    mkdir -p "${PATH_LOCAL_STORAGE}/databases/system/"
+    cp "${PATH_SYSTEM_STORAGE}/databases/empty/shows.db" "${PATH_LOCAL_STORAGE}/databases/system/"
+fi
+
+if [ ! -f "${PATH_LOCAL_STORAGE}/databases/system/categories.db" ]
+then
+    mkdir -p "${PATH_LOCAL_STORAGE}/databases/system/"
+    cp "${PATH_SYSTEM_STORAGE}/databases/system/categories.db" "${PATH_LOCAL_STORAGE}/databases/system/"
+fi
+
+if [ ! -f "${PATH_LOCAL_STORAGE}/databases/system/languages.db" ]
+then
+    mkdir -p "${PATH_LOCAL_STORAGE}/databases/system/"
+    cp "${PATH_SYSTEM_STORAGE}/databases/system/languages.db" "${PATH_LOCAL_STORAGE}/databases/system/"
+fi
 
 # Execute getopt on the arguments passed to this program, identified by the special character $@
 PARSED_OPTIONS=$(getopt -n "$0" -o h,q --long "help,quiet,languages,categories,show,episode,new,edit,delete,list,backup,restore,feed,id:,show-id:,title:,owner:,author:,explicit:,url:,picture:,category:,summary:,language:,publication-datetime:,format:,output:" -- "$@")
@@ -741,7 +760,7 @@ case "${command}" in
                 echo '<language>'"${show_language_code}"'</language>' >> "${OPTIONS_ARRAY[output]}"
                 for episode_id in $(sqlite3 "${PATH_LOCAL_STORAGE}/databases/system/shows.db" "SELECT id FROM episodes WHERE show_id='${OPTIONS_ARRAY[show-id]}';")
                 do
-                    echo "episode_id: ${episode_id}"
+                    #echo "episode_id: ${episode_id}"
                     episode_title="$(sqlite3 "${PATH_LOCAL_STORAGE}/databases/system/shows.db" "SELECT title FROM episodes WHERE id='${episode_id}'")"
                     episode_publication_datetime="$(sqlite3 "${PATH_LOCAL_STORAGE}/databases/system/shows.db" "SELECT publication_datetime FROM episodes WHERE id='${episode_id}'")"
                     episode_publication_datetime="$(LANG=en_EN.utf8 date -d "${episode_publication_datetime}" +'%a, %d %b %Y %H:%M:%S %z')"
