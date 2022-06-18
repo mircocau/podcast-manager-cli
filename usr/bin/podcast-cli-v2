@@ -190,7 +190,7 @@ function _database_insert {
 function _get_language_code {
     name_english=${1}
 
-    to_return=$(sqlite3 "${PATH_LOCAL_STORAGE}/databases/system/languages.db" "SELECT iso_639-1 FROM language WHERE name_english='${name_english}';")
+    to_return=$(sqlite3 "${PATH_LOCAL_STORAGE}/databases/system/languages.db" "SELECT 'iso_639-1' FROM languages WHERE name_english='${name_english}';")
 
     echo "${to_return}"
 }
@@ -199,7 +199,7 @@ function _get_language_code {
 PATH_LOCAL_STORAGE="/home/mircocau/git-repos/podcast-cli/etc/podcast-cli"
 
 # Execute getopt on the arguments passed to this program, identified by the special character $@
-PARSED_OPTIONS=$(getopt -n "$0" -o h,q --long "help,quiet,languages,categories,show,episode,new,edit,delete,list,backup,restore,feed,id:,show-id:,title:,owner:,author:,explicit:,url:,picture:,category:,summary:,language:,publication-datetime:" -- "$@")
+PARSED_OPTIONS=$(getopt -n "$0" -o h,q --long "help,quiet,languages,categories,show,episode,new,edit,delete,list,backup,restore,feed,id:,show-id:,title:,owner:,author:,explicit:,url:,picture:,category:,summary:,language:,publication-datetime:,format:,output:" -- "$@")
 
 #Bad arguments, something has gone wrong with the getopt command.
 if [ $? -ne 0 ];
@@ -598,6 +598,7 @@ case "${command}" in
                 is_error="true"
             else
                 if [ $(sqlite3 "${PATH_LOCAL_STORAGE}/databases/system/shows.db" "SELECT EXISTS(SELECT 1 FROM shows WHERE id='${OPTIONS_ARRAY[show-id]}' LIMIT 1);") -eq 0 ]
+                then
                     echo "[ERROR] Show ID not found in database."
                     is_error="true"
                 fi
@@ -645,7 +646,7 @@ case "${command}" in
             exit 1;
         fi
 
-        _database_insert "${PATH_LOCAL_STORAGE}/databases/system/shows.db" "episodes" "id,title,explicit,url,summary,publication-datetime,show-id" "'$(_generate_random_alphanumeric_string "16")','${OPTIONS_ARRAY[title]}','${OPTIONS_ARRAY[explicit]}','${OPTIONS_ARRAY[url]}','${OPTIONS_ARRAY[summary]}','${OPTIONS_ARRAY[publication-datetime]}','${OPTIONS_ARRAY[show-id]}'"
+        _database_insert "${PATH_LOCAL_STORAGE}/databases/system/shows.db" "episodes" "id,title,explicit,url,summary,'publication-datetime','show-id'" "'$(_generate_random_alphanumeric_string "16")','${OPTIONS_ARRAY[title]}','${OPTIONS_ARRAY[explicit]}','${OPTIONS_ARRAY[url]}','${OPTIONS_ARRAY[summary]}','${OPTIONS_ARRAY[publication-datetime]}','${OPTIONS_ARRAY[show-id]}'"
 
         if [ $? -ne 0 ]
         then
@@ -698,6 +699,7 @@ case "${command}" in
                 is_error="true"
             else
                 if [ $(sqlite3 "${PATH_LOCAL_STORAGE}/databases/system/shows.db" "SELECT EXISTS(SELECT 1 FROM shows WHERE id='${OPTIONS_ARRAY[show-id]}' LIMIT 1);") -eq 0 ]
+                then
                     echo "[ERROR] Show ID not found in database."
                     is_error="true"
                 fi
@@ -714,7 +716,7 @@ case "${command}" in
                 if [ "$(sqlite3 "${PATH_LOCAL_STORAGE}/databases/system/shows.db" "SELECT explicit FROM shows WHERE id='${OPTIONS_ARRAY[show-id]}'")" == "true" ]; then explicit="yes"; else explicit="no"; fi
                 show_picture="$(sqlite3 "${PATH_LOCAL_STORAGE}/databases/system/shows.db" "SELECT picture FROM shows WHERE id='${OPTIONS_ARRAY[show-id]}'")"
                 show_language_english="$(sqlite3 "${PATH_LOCAL_STORAGE}/databases/system/shows.db" "SELECT language FROM shows WHERE id='${OPTIONS_ARRAY[show-id]}'")"
-                show_language_code="$(_get_language_code "${language_english}")"
+                show_language_code="$(_get_language_code "${show_language_english}")"
                 if [ $? -ne 0 ]; then echo "[ERROR] Query DB failed."; exit 1; fi
                 last_build_date="$(LANG=en_EN.utf8 date +'%a, %d %b %Y %H:%M:%S %z')"
 
@@ -737,7 +739,7 @@ case "${command}" in
                 echo '<googleplay:author>'"${show_author}"'</googleplay:author>' >> "${OPTIONS_ARRAY[output]}"
                 echo '<googleplay:image href="'"${show_picture}"'"/>' >> "${OPTIONS_ARRAY[output]}"
                 echo '<language>'"${show_language_code}"'</language>' >> "${OPTIONS_ARRAY[output]}"
-                for episode_id in $(sqlite3 "${PATH_LOCAL_STORAGE}/databases/system/shows.db" "SELECT id FROM episodes WHERE show-id='${OPTIONS_ARRAY[show-id]}'")
+                for episode_id in $(sqlite3 "${PATH_LOCAL_STORAGE}/databases/system/shows.db" "SELECT id FROM episodes WHERE 'show-id'='${OPTIONS_ARRAY[show-id]}'")
                 do
                     episode_title="$(sqlite3 "${PATH_LOCAL_STORAGE}/databases/system/shows.db" "SELECT title FROM episodes WHERE id='${episode_id}'")"
                     episode_publication_datetime="$(sqlite3 "${PATH_LOCAL_STORAGE}/databases/system/shows.db" "SELECT publication-datetime FROM episodes WHERE id='${episode_id}'")"
