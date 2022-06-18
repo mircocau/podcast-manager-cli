@@ -106,6 +106,23 @@ function _print_usage {
     echo "          $0 --feed --show-id '[your-show-id]' --format 'Atom' --output '/your/path/to/file.xml'"
 }
 
+function _generate_random_alphanumeric_string {
+    length="${1}"
+
+    to_return="NULL"
+
+    while [ "${#to_return}" != "${length}" ]
+    do
+        array=()
+        for i in {a..z} {A..Z} {0..9}; do
+            array[$RANDOM]=$i
+        done
+        to_return=$(printf %s ${array[@]::length} $'\n')
+    done
+
+    echo "${to_return}"
+}
+
 function _is_id_valid {
     id="${1}"
 
@@ -176,7 +193,8 @@ function _database_insert {
     # fi
 }
 
-PATH_LOCAL_STORAGE="/etc/podcast-cli"
+#PATH_LOCAL_STORAGE="/etc/podcast-cli"
+PATH_LOCAL_STORAGE="/home/mircocau/git-repos/podcast-cli/etc/podcast-cli"
 
 # Execute getopt on the arguments passed to this program, identified by the special character $@
 PARSED_OPTIONS=$(getopt -n "$0" -o h,q --long "help,quiet,languages,categories,show,episode,new,edit,delete,list,backup,restore,feed,id:,show-id:,title:,owner:,author:,explicit:,url:,picture:,category:,summary:,language:,publication-datetime:" -- "$@")
@@ -445,7 +463,7 @@ case "${command}" in
                 echo "[ERROR] ID is invalid. Accepted ID contains A-Z, a-z, 0-9, -,_ or . (no whitespaces)."
                 is_error="true"
             else
-                if [ $(sqlite3 "${PATH_LOCAL_STORAGE}/databases/system/shows.db" "SELECT EXISTS(SELECT 1 FROM shows WHERE id='${OPTIONS_ARRAY[id]}' LIMIT 1)") ]
+                if [ $(sqlite3 "${PATH_LOCAL_STORAGE}/databases/system/shows.db" "SELECT EXISTS(SELECT 1 FROM shows WHERE id='${OPTIONS_ARRAY[id]}' LIMIT 1);") -ne 0 ]
                 then
                     echo "[ERROR] A show with this ID already exist. Choose a different ID."
                     is_error="true"
@@ -513,7 +531,7 @@ case "${command}" in
             exit 1;
         fi
 
-        _database_insert "${PATH_LOCAL_STORAGE}/databases/shows/shows.db" "shows" "id,title,owner,author,explicit,url,picture,summary,category,language" "'${OPTIONS_ARRAY[id]}','${OPTIONS_ARRAY[title]}','${OPTIONS_ARRAY[owner]}','${OPTIONS_ARRAY[author]}','${OPTIONS_ARRAY[explicit]}','${OPTIONS_ARRAY[url]}','${OPTIONS_ARRAY[picture]}','${OPTIONS_ARRAY[summary]}','${OPTIONS_ARRAY[category]}','${OPTIONS_ARRAY[language]}'"
+        _database_insert "${PATH_LOCAL_STORAGE}/databases/system/shows.db" "shows" "id,title,owner,author,explicit,url,picture,summary,category,language" "'${OPTIONS_ARRAY[id]}','${OPTIONS_ARRAY[title]}','${OPTIONS_ARRAY[owner]}','${OPTIONS_ARRAY[author]}','${OPTIONS_ARRAY[explicit]}','${OPTIONS_ARRAY[url]}','${OPTIONS_ARRAY[picture]}','${OPTIONS_ARRAY[summary]}','${OPTIONS_ARRAY[category]}','${OPTIONS_ARRAY[language]}'"
 
         if [ $? -ne 0 ]
         then
@@ -559,8 +577,8 @@ case "${command}" in
         is_error="false"
         if [ "${is_error}" == "false" ]
         then
-            declare -a MANDATORY_EPISODE_NEW_INDEX_ARRAY=( "show-id" "title" "summary" "publication-datetime" "url" )
-            for index in "${MANDATORY_SHOW_NEW_INDEX_ARRAY[@]}"
+            declare -a MANDATORY_EPISODE_NEW_INDEX_ARRAY=( "show-id" "title" "publication-datetime" "url" )
+            for index in "${MANDATORY_EPISODE_NEW_INDEX_ARRAY[@]}"
             do
                 if [ -z "${OPTIONS_ARRAY[${index}]}" ] || [ "${OPTIONS_ARRAY[${index}]}" == "" ]
                 then
@@ -577,11 +595,7 @@ case "${command}" in
                 echo "[ERROR] ID is invalid. Accepted ID contains A-Z, a-z, 0-9, -,_ or . (no whitespaces)."
                 is_error="true"
             else
-                if [ $(sqlite3 "${PATH_LOCAL_STORAGE}/databases/system/shows.db" "SELECT EXISTS(SELECT 1 FROM shows WHERE id='${OPTIONS_ARRAY[show-id]}' LIMIT 1)") ]
-                then
-                    #echo "[ERROR] A show with this ID already exist. Choose a different ID."
-                    is_error="false"
-                else
+                if [ $(sqlite3 "${PATH_LOCAL_STORAGE}/databases/system/shows.db" "SELECT EXISTS(SELECT 1 FROM shows WHERE id='${OPTIONS_ARRAY[show-id]}' LIMIT 1);") -eq 0 ]
                     echo "[ERROR] Show ID not found in database."
                     is_error="true"
                 fi
@@ -611,18 +625,30 @@ case "${command}" in
         then
             if [ -z "${OPTIONS_ARRAY[explicit]}" ] || [ "${OPTIONS_ARRAY[explicit]}" == "" ] || [ "${OPTIONS_ARRAY[explicit]}" == "true" ]
             then
-                echo "is explicit"
                 OPTIONS_ARRAY[explicit]="true"
             else
                 if [ "${OPTIONS_ARRAY[explicit]}" == "false" ]
                 then
-                    echo "is NOT explicit"
                     OPTIONS_ARRAY[explicit]="false"
                 else
                     echo "Explicit value is NOT valid."
                     is_error="true"
                 fi
             fi
+        fi
+
+        if [ "${is_error}" == "true" ]
+        then
+            echo "[ERROR] Empty or invalid options."
+            exit 1;
+        fi
+
+        _database_insert "${PATH_LOCAL_STORAGE}/databases/system/shows.db" "episodes" "id,title,explicit,url,summary,publication-datetime,show-id" "'$(_generate_random_alphanumeric_string "16")','${OPTIONS_ARRAY[title]}','${OPTIONS_ARRAY[explicit]}','${OPTIONS_ARRAY[url]}','${OPTIONS_ARRAY[summary]}','${OPTIONS_ARRAY[publication-datetime]}','${OPTIONS_ARRAY[show-id]}'"
+
+        if [ $? -ne 0 ]
+        then
+            echo "[ERROR] Command failed."
+            exit 1
         fi
         ;;
     "episode.edit")
