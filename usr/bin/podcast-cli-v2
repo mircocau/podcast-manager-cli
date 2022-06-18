@@ -61,9 +61,9 @@ function _print_usage {
     echo "    --episode-id"
     echo "  How to:"
     echo "      Create a new episode:"
-    echo "          $0 --episode --show-id '[your-show-id]' --new --title '[your-title-here]' --description '[your-description-here]' --publication-datetime '[your-publication-datetime-here]' --url '[your-url-here]' --explicit 'false'"
+    echo "          $0 --episode --show-id '[your-show-id]' --new --title '[your-title-here]' --summary '[your-description-here]' --publication-datetime '[your-publication-datetime-here]' --url '[your-url-here]' --explicit 'false'"
     echo "      Create a new explicit episode:"
-    echo "          $0 --episode --show-id '[your-show-id]' --new --title '[your-title-here]' --description '[your-description-here]' --publication-datetime '[your-publication-datetime-here]' --url '[your-url-here]' --explicit 'true'"
+    echo "          $0 --episode --show-id '[your-show-id]' --new --title '[your-title-here]' --summary '[your-description-here]' --publication-datetime '[your-publication-datetime-here]' --url '[your-url-here]' --explicit 'true'"
     echo "      Delete an episode:"
     echo "          $0 --episode --show-id '[your-show-id]' --delete --episode-id '[your-episode-id-here]'"
     echo "      List all episodes:"
@@ -144,6 +144,36 @@ function _is_email_address_valid {
     else
         echo "false"
     fi
+}
+
+function _is_datetime_valid {
+    datetime="${1}"
+
+    result=$(date -d "${datetime}" +"%Y-%m-%d %H:%M" > /dev/null 2>&1)
+
+    if [ $? -eq 0 ]
+    then
+        return 0
+    fi
+
+    return 1
+}
+
+function _database_insert {
+    database_filename="${1}"
+    table_name="${2}"
+    #columns ('col1', 'col2')
+    columns="${3}"
+    #values ('value1', 'value2')
+    values="${4}"
+
+    sqlite3 "${database_filename}" "INSERT INTO ${table_name} (${columns}) VALUES (${values});"
+
+    #to be moved into main script
+    # if [ $? -ne 0 ]
+    # then
+    #     echo FAIL
+    # fi
 }
 
 PATH_LOCAL_STORAGE="/etc/podcast-cli"
@@ -415,7 +445,7 @@ case "${command}" in
                 echo "[ERROR] ID is invalid. Accepted ID contains A-Z, a-z, 0-9, -,_ or . (no whitespaces)."
                 is_error="true"
             else
-                if [ $(sqlite3 "${PATH_LOCAL_STORAGE}/databases/system/shows.db" "SELECT EXISTS(SELECT 1 FROM shows WHERE local_id='${OPTIONS_ARRAY[id]}' LIMIT 1)") ]
+                if [ $(sqlite3 "${PATH_LOCAL_STORAGE}/databases/system/shows.db" "SELECT EXISTS(SELECT 1 FROM shows WHERE id='${OPTIONS_ARRAY[id]}' LIMIT 1)") ]
                 then
                     echo "[ERROR] A show with this ID already exist. Choose a different ID."
                     is_error="true"
@@ -449,15 +479,13 @@ case "${command}" in
         then
             if [ -z "${OPTIONS_ARRAY[explicit]}" ] || [ "${OPTIONS_ARRAY[explicit]}" == "" ] || [ "${OPTIONS_ARRAY[explicit]}" == "true" ]
             then
-                echo "is explicit"
                 OPTIONS_ARRAY[explicit]="true"
             else
                 if [ "${OPTIONS_ARRAY[explicit]}" == "false" ]
                 then
-                    echo "is NOT explicit"
                     OPTIONS_ARRAY[explicit]="false"
                 else
-                    echo "Explicit value is NOT valid."
+                    echo "[ERROR] Explicit value is NOT valid."
                     is_error="true"
                 fi
             fi
@@ -485,6 +513,13 @@ case "${command}" in
             exit 1;
         fi
 
+        _database_insert "${PATH_LOCAL_STORAGE}/databases/shows/shows.db" "shows" "id,title,owner,author,explicit,url,picture,summary,category,language" "'${OPTIONS_ARRAY[id]}','${OPTIONS_ARRAY[title]}','${OPTIONS_ARRAY[owner]}','${OPTIONS_ARRAY[author]}','${OPTIONS_ARRAY[explicit]}','${OPTIONS_ARRAY[url]}','${OPTIONS_ARRAY[picture]}','${OPTIONS_ARRAY[summary]}','${OPTIONS_ARRAY[category]}','${OPTIONS_ARRAY[language]}'"
+
+        if [ $? -ne 0 ]
+        then
+            echo "[ERROR] Command failed."
+            exit 1
+        fi
         # SHOW_NEW_INDEX_ARRAY=( "id" "title" "owner" "author" "url" "picture" "category" "summary" "language" "explicit")
         # columns=""
         # values=""
@@ -520,7 +555,75 @@ case "${command}" in
         is_show="true"
         ;;
     "episode.new")
-        is_episode="true"
+        #is_episode="true"
+        is_error="false"
+        if [ "${is_error}" == "false" ]
+        then
+            declare -a MANDATORY_EPISODE_NEW_INDEX_ARRAY=( "show-id" "title" "summary" "publication-datetime" "url" )
+            for index in "${MANDATORY_SHOW_NEW_INDEX_ARRAY[@]}"
+            do
+                if [ -z "${OPTIONS_ARRAY[${index}]}" ] || [ "${OPTIONS_ARRAY[${index}]}" == "" ]
+                then
+                    echo "${index} is empty"
+                    is_error="true"
+                fi
+            done
+        fi
+
+        if [ "${is_error}" == "false" ]
+        then
+            if [ "$(_is_id_valid "${OPTIONS_ARRAY[show-id]}")" == "false" ]
+            then
+                echo "[ERROR] ID is invalid. Accepted ID contains A-Z, a-z, 0-9, -,_ or . (no whitespaces)."
+                is_error="true"
+            else
+                if [ $(sqlite3 "${PATH_LOCAL_STORAGE}/databases/system/shows.db" "SELECT EXISTS(SELECT 1 FROM shows WHERE id='${OPTIONS_ARRAY[show-id]}' LIMIT 1)") ]
+                then
+                    #echo "[ERROR] A show with this ID already exist. Choose a different ID."
+                    is_error="false"
+                else
+                    echo "[ERROR] Show ID not found in database."
+                    is_error="true"
+                fi
+            fi
+        fi
+
+        if [ "${is_error}" == "false" ]
+        then
+            if [ "$(_is_url_valid "${OPTIONS_ARRAY[url]}")" == "false" ]
+            then
+                echo "[ERROR] ${OPTIONS_ARRAY[url]} is not a valid URL."
+                is_error="true"
+            fi
+        fi
+
+        if [ "${is_error}" == "false" ]
+        then
+            _is_datetime_valid "${OPTIONS_ARRAY[publication-datetime]}"
+            if [ $? -ne 0 ]
+            then
+                echo "[ERROR] ${OPTIONS_ARRAY[publication-datetime]} is not a valid publication datetime."
+                is_error="true"
+            fi
+        fi
+        
+        if [ "${is_error}" == "false" ]
+        then
+            if [ -z "${OPTIONS_ARRAY[explicit]}" ] || [ "${OPTIONS_ARRAY[explicit]}" == "" ] || [ "${OPTIONS_ARRAY[explicit]}" == "true" ]
+            then
+                echo "is explicit"
+                OPTIONS_ARRAY[explicit]="true"
+            else
+                if [ "${OPTIONS_ARRAY[explicit]}" == "false" ]
+                then
+                    echo "is NOT explicit"
+                    OPTIONS_ARRAY[explicit]="false"
+                else
+                    echo "Explicit value is NOT valid."
+                    is_error="true"
+                fi
+            fi
+        fi
         ;;
     "episode.edit")
         is_new="true"
