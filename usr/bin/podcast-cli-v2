@@ -179,7 +179,7 @@ function _database_insert {
 PATH_LOCAL_STORAGE="/etc/podcast-cli"
 
 # Execute getopt on the arguments passed to this program, identified by the special character $@
-PARSED_OPTIONS=$(getopt -n "$0" -o h,q --long "help,quiet,languages,categories,show,episode,new,edit,delete,list,backup,restore,feed,id:,show-id:,title:,owner:,author:,explicit:,url:,image:,category:,description:,language:,publication-datetime:" -- "$@")
+PARSED_OPTIONS=$(getopt -n "$0" -o h,q --long "help,quiet,languages,categories,show,episode,new,edit,delete,list,backup,restore,feed,id:,show-id:,title:,owner:,author:,explicit:,url:,picture:,category:,summary:,language:,publication-datetime:" -- "$@")
 
 #Bad arguments, something has gone wrong with the getopt command.
 if [ $? -ne 0 ];
