@@ -728,10 +728,12 @@ case "${command}" in
         case "${OPTIONS_ARRAY[format]}" in
             'RSS')
                 show_title="$(sqlite3 "${PATH_LOCAL_STORAGE}/databases/system/shows.db" "SELECT title FROM shows WHERE id='${OPTIONS_ARRAY[show-id]}'")"
+                show_title="$(echo "${show_title//&/&amp;}")"
                 show_url="$(sqlite3 "${PATH_LOCAL_STORAGE}/databases/system/shows.db" "SELECT url FROM shows WHERE id='${OPTIONS_ARRAY[show-id]}'")"
                 show_summary="$(sqlite3 "${PATH_LOCAL_STORAGE}/databases/system/shows.db" "SELECT summary FROM shows WHERE id='${OPTIONS_ARRAY[show-id]}'")"
                 show_owner="$(sqlite3 "${PATH_LOCAL_STORAGE}/databases/system/shows.db" "SELECT owner FROM shows WHERE id='${OPTIONS_ARRAY[show-id]}'")"
                 show_author="$(sqlite3 "${PATH_LOCAL_STORAGE}/databases/system/shows.db" "SELECT author FROM shows WHERE id='${OPTIONS_ARRAY[show-id]}'")"
+                show_author="${show_author//&/&amp;}"
                 if [ "$(sqlite3 "${PATH_LOCAL_STORAGE}/databases/system/shows.db" "SELECT explicit FROM shows WHERE id='${OPTIONS_ARRAY[show-id]}'")" == "true" ]; then explicit="yes"; else explicit="no"; fi
                 show_picture="$(sqlite3 "${PATH_LOCAL_STORAGE}/databases/system/shows.db" "SELECT picture FROM shows WHERE id='${OPTIONS_ARRAY[show-id]}'")"
                 show_language_english="$(sqlite3 "${PATH_LOCAL_STORAGE}/databases/system/shows.db" "SELECT language FROM shows WHERE id='${OPTIONS_ARRAY[show-id]}'")"
@@ -758,7 +760,7 @@ case "${command}" in
                 echo '<googleplay:author>'"${show_author}"'</googleplay:author>' >> "${OPTIONS_ARRAY[output]}"
                 echo '<googleplay:image href="'"${show_picture}"'"/>' >> "${OPTIONS_ARRAY[output]}"
                 echo '<language>'"${show_language_code}"'</language>' >> "${OPTIONS_ARRAY[output]}"
-                for episode_id in $(sqlite3 "${PATH_LOCAL_STORAGE}/databases/system/shows.db" "SELECT id FROM episodes WHERE show_id='${OPTIONS_ARRAY[show-id]}';")
+                for episode_id in $(sqlite3 "${PATH_LOCAL_STORAGE}/databases/system/shows.db" "SELECT id FROM episodes WHERE show_id='${OPTIONS_ARRAY[show-id]}' ORDER BY publication_datetime DESC;")
                 do
                     #echo "episode_id: ${episode_id}"
                     episode_title="$(sqlite3 "${PATH_LOCAL_STORAGE}/databases/system/shows.db" "SELECT title FROM episodes WHERE id='${episode_id}'")"
@@ -770,7 +772,7 @@ case "${command}" in
                     echo '<item>' >> "${OPTIONS_ARRAY[output]}"
                     echo '<title>'"${episode_title}"'</title>' >> "${OPTIONS_ARRAY[output]}"
                     echo '<pubDate>'"${episode_publication_datetime}"'</pubDate>' >> "${OPTIONS_ARRAY[output]}"
-                    echo '<description>'"${episode_summary}"'<description/>' >> "${OPTIONS_ARRAY[output]}"
+                    echo '<description>'"${episode_summary}"'</description>' >> "${OPTIONS_ARRAY[output]}"
                     echo '<enclosure url="'"${episode_url}"'" length="" type="audio/ogg"/>' >> "${OPTIONS_ARRAY[output]}"
                     echo '<guid isPermalink="false">'"${episode_id}"'</guid>' >> "${OPTIONS_ARRAY[output]}"
                     echo '</item>' >> "${OPTIONS_ARRAY[output]}"
