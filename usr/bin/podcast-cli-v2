@@ -185,12 +185,14 @@ function _database_insert {
     values="${4}"
 
     sqlite3 "${database_filename}" "INSERT INTO ${table_name} (${columns}) VALUES (${values});"
+}
 
-    #to be moved into main script
-    # if [ $? -ne 0 ]
-    # then
-    #     echo FAIL
-    # fi
+function _get_language_code {
+    name_english=${1}
+
+    to_return=$(sqlite3 "${PATH_LOCAL_STORAGE}/databases/system/languages.db" "SELECT iso_639-1 FROM language WHERE name_english='${name_english}';")
+
+    echo "${to_return}"
 }
 
 #PATH_LOCAL_STORAGE="/etc/podcast-cli"
@@ -673,7 +675,94 @@ case "${command}" in
         is_show="true"
         ;;
     "feed")
-        is_show="true"
+        # is_show="true"
+        is_error="false"
+        if [ "${is_error}" == "false" ]
+        then
+            declare -a MANDATORY_FEED_INDEX_ARRAY=( "show-id" "format" "output" )
+            for index in "${MANDATORY_EPISODE_NEW_INDEX_ARRAY[@]}"
+            do
+                if [ -z "${OPTIONS_ARRAY[${index}]}" ] || [ "${OPTIONS_ARRAY[${index}]}" == "" ]
+                then
+                    echo "${index} is empty"
+                    is_error="true"
+                fi
+            done
+        fi
+
+        if [ "${is_error}" == "false" ]
+        then
+            if [ "$(_is_id_valid "${OPTIONS_ARRAY[show-id]}")" == "false" ]
+            then
+                echo "[ERROR] ID is invalid. Accepted ID contains A-Z, a-z, 0-9, -,_ or . (no whitespaces)."
+                is_error="true"
+            else
+                if [ $(sqlite3 "${PATH_LOCAL_STORAGE}/databases/system/shows.db" "SELECT EXISTS(SELECT 1 FROM shows WHERE id='${OPTIONS_ARRAY[show-id]}' LIMIT 1);") -eq 0 ]
+                    echo "[ERROR] Show ID not found in database."
+                    is_error="true"
+                fi
+            fi
+        fi
+
+        case "${OPTIONS_ARRAY[format]}" in
+            'RSS')
+                show_title="$(sqlite3 "${PATH_LOCAL_STORAGE}/databases/system/shows.db" "SELECT title FROM shows WHERE id='${OPTIONS_ARRAY[show-id]}'")"
+                show_url="$(sqlite3 "${PATH_LOCAL_STORAGE}/databases/system/shows.db" "SELECT url FROM shows WHERE id='${OPTIONS_ARRAY[show-id]}'")"
+                show_summary="$(sqlite3 "${PATH_LOCAL_STORAGE}/databases/system/shows.db" "SELECT summary FROM shows WHERE id='${OPTIONS_ARRAY[show-id]}'")"
+                show_owner="$(sqlite3 "${PATH_LOCAL_STORAGE}/databases/system/shows.db" "SELECT owner FROM shows WHERE id='${OPTIONS_ARRAY[show-id]}'")"
+                show_author="$(sqlite3 "${PATH_LOCAL_STORAGE}/databases/system/shows.db" "SELECT author FROM shows WHERE id='${OPTIONS_ARRAY[show-id]}'")"
+                if [ "$(sqlite3 "${PATH_LOCAL_STORAGE}/databases/system/shows.db" "SELECT explicit FROM shows WHERE id='${OPTIONS_ARRAY[show-id]}'")" == "true" ]; then explicit="yes"; else explicit="no"; fi
+                show_picture="$(sqlite3 "${PATH_LOCAL_STORAGE}/databases/system/shows.db" "SELECT picture FROM shows WHERE id='${OPTIONS_ARRAY[show-id]}'")"
+                show_language_english="$(sqlite3 "${PATH_LOCAL_STORAGE}/databases/system/shows.db" "SELECT language FROM shows WHERE id='${OPTIONS_ARRAY[show-id]}'")"
+                show_language_code="$(_get_language_code "${language_english}")"
+                if [ $? -ne 0 ]; then echo "[ERROR] Query DB failed."; exit 1; fi
+                last_build_date="$(LANG=en_EN.utf8 date +'%a, %d %b %Y %H:%M:%S %z')"
+
+                echo '<rss xmlns:googleplay="http://www.google.com/schemas/play-podcasts/1.0" xmlns:itunes="http://www.itunes.com/dtds/podcast-1.0.dtd" version="2.0">' > "${OPTIONS_ARRAY[output]}"
+                echo '<channel>' >> "${OPTIONS_ARRAY[output]}"
+                echo '<title>'"${show_title}"'</title>' >> "${OPTIONS_ARRAY[output]}"
+                echo '<link>'"${show_url}"'</link>' >> "${OPTIONS_ARRAY[output]}"
+                echo '<description>'"${show_summary}"'</description>' >> "${OPTIONS_ARRAY[output]}"
+                echo '<lastBuildDate>'"${last_build_date}"'</lastBuildDate>' >> "${OPTIONS_ARRAY[output]}"
+                echo '<itunes:owner>' >> "${OPTIONS_ARRAY[output]}"
+                echo '<itunes:email>'"${show_owner}"'</itunes:email>' >> "${OPTIONS_ARRAY[output]}"
+                echo '<itunes:name>'"${show_owner}"'</itunes:name>' >> "${OPTIONS_ARRAY[output]}"
+                echo '</itunes:owner>' >> "${OPTIONS_ARRAY[output]}"
+                echo '<itunes:author>'"${show_author}"'</itunes:author>' >> "${OPTIONS_ARRAY[output]}"
+                echo '<itunes:explicit>'"${explicit}"'</itunes:explicit>' >> "${OPTIONS_ARRAY[output]}"
+                echo '<itunes:image href="'"${show_picture}"'"/>' >> "${OPTIONS_ARRAY[output]}"
+                echo '<itunes:subtitle>'"${show_summary}"'</itunes:subtitle>' >> "${OPTIONS_ARRAY[output]}"
+                echo '<itunes:summary>'"${show_summary}"'</itunes:summary>' >> "${OPTIONS_ARRAY[output]}"
+                echo '<googleplay:owner>'"${show_owner}"'</googleplay:owner>' >> "${OPTIONS_ARRAY[output]}"
+                echo '<googleplay:author>'"${show_author}"'</googleplay:author>' >> "${OPTIONS_ARRAY[output]}"
+                echo '<googleplay:image href="'"${show_picture}"'"/>' >> "${OPTIONS_ARRAY[output]}"
+                echo '<language>'"${show_language_code}"'</language>' >> "${OPTIONS_ARRAY[output]}"
+                for episode_id in $(sqlite3 "${PATH_LOCAL_STORAGE}/databases/system/shows.db" "SELECT id FROM episodes WHERE show-id='${OPTIONS_ARRAY[show-id]}'")
+                do
+                    episode_title="$(sqlite3 "${PATH_LOCAL_STORAGE}/databases/system/shows.db" "SELECT title FROM episodes WHERE id='${episode_id}'")"
+                    episode_publication_datetime="$(sqlite3 "${PATH_LOCAL_STORAGE}/databases/system/shows.db" "SELECT publication-datetime FROM episodes WHERE id='${episode_id}'")"
+                    episode_publication_datetime="$(LANG=en_EN.utf8 date -d "${episode_publication_datetime}" +'%a, %d %b %Y %H:%M:%S %z')"
+                    episode_summary="$(sqlite3 "${PATH_LOCAL_STORAGE}/databases/system/shows.db" "SELECT summary FROM episodes WHERE id='${episode_id}'")"
+                    episode_url="$(sqlite3 "${PATH_LOCAL_STORAGE}/databases/system/shows.db" "SELECT url FROM episodes WHERE id='${episode_id}'")"
+
+                    echo '<item>' >> "${OPTIONS_ARRAY[output]}"
+                    echo '<title>'"${episode_title}"'</title>' >> "${OPTIONS_ARRAY[output]}"
+                    echo '<pubDate>'"${episode_publication_datetime}"'</pubDate>' >> "${OPTIONS_ARRAY[output]}"
+                    echo '<description>'"${episode_summary}"'<description/>' >> "${OPTIONS_ARRAY[output]}"
+                    echo '<enclosure url="'"${episode_url}"'" length="" type="audio/ogg"/>' >> "${OPTIONS_ARRAY[output]}"
+                    echo '<guid isPermalink="false">'"${episode_id}"'</guid>' >> "${OPTIONS_ARRAY[output]}"
+                    echo '</item>' >> "${OPTIONS_ARRAY[output]}"
+                done
+                echo '</channel>' >> "${OPTIONS_ARRAY[output]}"
+                echo '</rss>' >> "${OPTIONS_ARRAY[output]}"
+                ;;
+            'ATOM')
+                OPTIONS_ARRAY[quiet]='true'
+                ;;
+            --)
+                echo "[ERROR] ${OPTIONS_ARRAY[format]} is NOT valid."
+                break;;
+        esac
         ;;
     *)
         echo "[ERROR] Unknown command."
