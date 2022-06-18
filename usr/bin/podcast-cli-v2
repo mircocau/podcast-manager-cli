@@ -513,7 +513,7 @@ case "${command}" in
 
         if [ "${is_error}" == "false" ]
         then
-            if [ $(sqlite3 "${PATH_LOCAL_STORAGE}/databases/system/categories.db" "SELECT EXISTS(SELECT 1 FROM categories WHERE id='${OPTIONS_ARRAY[category]}' LIMIT 1)") -eq 0 ]
+            if [ $(sqlite3 "${PATH_LOCAL_STORAGE}/databases/system/categories.db" "SELECT EXISTS(SELECT 1 FROM categories WHERE name='${OPTIONS_ARRAY[category]}' LIMIT 1)") -eq 0 ]
             then
                 is_error="true"
             fi
@@ -521,7 +521,7 @@ case "${command}" in
 
         if [ "${is_error}" == "false" ]
         then
-            if [ $(sqlite3 "${PATH_LOCAL_STORAGE}/databases/system/languages.db" "SELECT EXISTS(SELECT 1 FROM languages WHERE id='${OPTIONS_ARRAY[language]}' LIMIT 1)") -eq 0 ]
+            if [ $(sqlite3 "${PATH_LOCAL_STORAGE}/databases/system/languages.db" "SELECT EXISTS(SELECT 1 FROM languages WHERE name_english='${OPTIONS_ARRAY[language]}' LIMIT 1)") -eq 0 ]
             then
                 is_error="true"
             fi
@@ -739,8 +739,9 @@ case "${command}" in
                 echo '<googleplay:author>'"${show_author}"'</googleplay:author>' >> "${OPTIONS_ARRAY[output]}"
                 echo '<googleplay:image href="'"${show_picture}"'"/>' >> "${OPTIONS_ARRAY[output]}"
                 echo '<language>'"${show_language_code}"'</language>' >> "${OPTIONS_ARRAY[output]}"
-                for episode_id in $(sqlite3 "${PATH_LOCAL_STORAGE}/databases/system/shows.db" "SELECT id FROM episodes WHERE 'show-id'='${OPTIONS_ARRAY[show-id]}'")
+                for episode_id in $(sqlite3 "${PATH_LOCAL_STORAGE}/databases/system/shows.db" "SELECT id FROM episodes WHERE show_id='${OPTIONS_ARRAY[show-id]}';")
                 do
+                    echo "episode_id: ${episode_id}"
                     episode_title="$(sqlite3 "${PATH_LOCAL_STORAGE}/databases/system/shows.db" "SELECT title FROM episodes WHERE id='${episode_id}'")"
                     episode_publication_datetime="$(sqlite3 "${PATH_LOCAL_STORAGE}/databases/system/shows.db" "SELECT publication_datetime FROM episodes WHERE id='${episode_id}'")"
                     episode_publication_datetime="$(LANG=en_EN.utf8 date -d "${episode_publication_datetime}" +'%a, %d %b %Y %H:%M:%S %z')"
