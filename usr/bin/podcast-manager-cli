@@ -738,8 +738,8 @@ case "${command}" in
                 show_language_code="$(_get_language_code "${show_language_english}")"
                 if [ $? -ne 0 ]; then echo "[ERROR] Query DB failed."; exit 1; fi
                 last_build_date="$(LANG=en_EN.utf8 date +'%a, %d %b %Y %H:%M:%S %z')"
-
-                echo '<rss xmlns:googleplay="http://www.google.com/schemas/play-podcasts/1.0" xmlns:itunes="http://www.itunes.com/dtds/podcast-1.0.dtd" version="2.0">' > "${OPTIONS_ARRAY[output]}"
+                echo '<?xml version="1.0" encoding="UTF-8"?>' > "${OPTIONS_ARRAY[output]}"
+                echo '<rss xmlns:googleplay="http://www.google.com/schemas/play-podcasts/1.0" xmlns:itunes="http://www.itunes.com/dtds/podcast-1.0.dtd" version="2.0">' >> "${OPTIONS_ARRAY[output]}"
                 echo '<channel>' >> "${OPTIONS_ARRAY[output]}"
                 echo '<title>'"${show_title}"'</title>' >> "${OPTIONS_ARRAY[output]}"
                 echo '<link>'"${show_url}"'</link>' >> "${OPTIONS_ARRAY[output]}"
