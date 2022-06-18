@@ -190,7 +190,7 @@ function _database_insert {
 function _get_language_code {
     name_english=${1}
 
-    to_return=$(sqlite3 "${PATH_LOCAL_STORAGE}/databases/system/languages.db" "SELECT 'iso_639-1' FROM languages WHERE name_english='${name_english}';")
+    to_return=$(sqlite3 "${PATH_LOCAL_STORAGE}/databases/system/languages.db" "SELECT iso_639_1 FROM languages WHERE name_english='${name_english}';")
 
     echo "${to_return}"
 }
@@ -513,7 +513,7 @@ case "${command}" in
 
         if [ "${is_error}" == "false" ]
         then
-            if [ ! $(sqlite3 "${PATH_LOCAL_STORAGE}/databases/system/categories.db" "SELECT EXISTS(SELECT 1 FROM categories WHERE id='${OPTIONS_ARRAY[category]}' LIMIT 1)") ]
+            if [ $(sqlite3 "${PATH_LOCAL_STORAGE}/databases/system/categories.db" "SELECT EXISTS(SELECT 1 FROM categories WHERE id='${OPTIONS_ARRAY[category]}' LIMIT 1)") -eq 0 ]
             then
                 is_error="true"
             fi
@@ -521,7 +521,7 @@ case "${command}" in
 
         if [ "${is_error}" == "false" ]
         then
-            if [ ! $(sqlite3 "${PATH_LOCAL_STORAGE}/databases/system/languages.db" "SELECT EXISTS(SELECT 1 FROM languages WHERE id='${OPTIONS_ARRAY[language]}' LIMIT 1)") ]
+            if [ $(sqlite3 "${PATH_LOCAL_STORAGE}/databases/system/languages.db" "SELECT EXISTS(SELECT 1 FROM languages WHERE id='${OPTIONS_ARRAY[language]}' LIMIT 1)") -eq 0 ]
             then
                 is_error="true"
             fi
@@ -646,7 +646,7 @@ case "${command}" in
             exit 1;
         fi
 
-        _database_insert "${PATH_LOCAL_STORAGE}/databases/system/shows.db" "episodes" "id,title,explicit,url,summary,'publication-datetime','show-id'" "'$(_generate_random_alphanumeric_string "16")','${OPTIONS_ARRAY[title]}','${OPTIONS_ARRAY[explicit]}','${OPTIONS_ARRAY[url]}','${OPTIONS_ARRAY[summary]}','${OPTIONS_ARRAY[publication-datetime]}','${OPTIONS_ARRAY[show-id]}'"
+        _database_insert "${PATH_LOCAL_STORAGE}/databases/system/shows.db" "episodes" "id,title,explicit,url,summary,publication_datetime,show_id" "'$(_generate_random_alphanumeric_string "16")','${OPTIONS_ARRAY[title]}','${OPTIONS_ARRAY[explicit]}','${OPTIONS_ARRAY[url]}','${OPTIONS_ARRAY[summary]}','${OPTIONS_ARRAY[publication-datetime]}','${OPTIONS_ARRAY[show-id]}'"
 
         if [ $? -ne 0 ]
         then
@@ -742,7 +742,7 @@ case "${command}" in
                 for episode_id in $(sqlite3 "${PATH_LOCAL_STORAGE}/databases/system/shows.db" "SELECT id FROM episodes WHERE 'show-id'='${OPTIONS_ARRAY[show-id]}'")
                 do
                     episode_title="$(sqlite3 "${PATH_LOCAL_STORAGE}/databases/system/shows.db" "SELECT title FROM episodes WHERE id='${episode_id}'")"
-                    episode_publication_datetime="$(sqlite3 "${PATH_LOCAL_STORAGE}/databases/system/shows.db" "SELECT publication-datetime FROM episodes WHERE id='${episode_id}'")"
+                    episode_publication_datetime="$(sqlite3 "${PATH_LOCAL_STORAGE}/databases/system/shows.db" "SELECT publication_datetime FROM episodes WHERE id='${episode_id}'")"
                     episode_publication_datetime="$(LANG=en_EN.utf8 date -d "${episode_publication_datetime}" +'%a, %d %b %Y %H:%M:%S %z')"
                     episode_summary="$(sqlite3 "${PATH_LOCAL_STORAGE}/databases/system/shows.db" "SELECT summary FROM episodes WHERE id='${episode_id}'")"
                     episode_url="$(sqlite3 "${PATH_LOCAL_STORAGE}/databases/system/shows.db" "SELECT url FROM episodes WHERE id='${episode_id}'")"
